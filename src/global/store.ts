@@ -1,54 +1,58 @@
+import { Store as ReduxStore } from 'redux';
+
 import { Store } from './interfaces';
 
 declare var Context: any;
 
-Context.store = (function() {
-  let _store: Store;
+Context.store = ((): Store => {
+  let _store: ReduxStore;
 
-  function setStore(store: Store) {
+  const setStore = (store: ReduxStore) => {
     _store = store;
-  }
+  };
 
-  function getState() {
+  const getState = () => {
     return _store && _store.getState();
-  }
+  };
 
-  function getStore() {
+  const getStore = () => {
     return _store;
-  }
+  };
 
-  function mapDispatchToProps(component: any, props: any) {
+  const mapDispatchToProps = (component: any, props: any) => {
     Object.keys(props).forEach(actionName => {
       const action = props[actionName];
       Object.defineProperty(component, actionName, {
-        get: () => (...args: any[]) => action(...args)(_store.dispatch, _store.getState),
+        get: () => (...args: any[]) => _store.dispatch(action(...args)),
         configurable: true,
-        enumerable: true
-      })
+        enumerable: true,
+      });
     });
-  }
+  };
 
-  function mapStateToProps(component: any, mapState: Function) {
+  const mapStateToProps = (component: any, mapState: (...args: any[]) => any) => {
     // TODO: Don't listen for each component
     const _mapStateToProps = (_component: any, _mapState: any) => {
       const mergeProps = mapState(_store.getState());
       Object.keys(mergeProps).forEach(newPropName => {
-        let newPropValue = mergeProps[newPropName];
+        const newPropValue = mergeProps[newPropName];
         component[newPropName] = newPropValue;
         // TODO: can we define new props and still have change detection work?
       });
     };
 
-    _store.subscribe(() => _mapStateToProps(component, mapState));
+    const unsubscribe = _store.subscribe(() => _mapStateToProps(component, mapState));
 
     _mapStateToProps(component, mapState);
-  }
+
+    return unsubscribe;
+  };
 
   return {
     getStore,
     setStore,
     getState,
     mapDispatchToProps,
-    mapStateToProps
-  } as Store;
+    mapStateToProps,
+  };
 })();
